@@ -440,9 +440,14 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
 private fun Set<String>.toggle(value: String): Set<String> = if (contains(value)) this - value else this + value
 
 @Composable
+private fun TreeTrailingIcon(open: Boolean) {
+    Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, "Toggle")
+}
+
+@Composable
 private fun TreeRow(name: String, open: Boolean, indent: Int = 0, file: Boolean = false, onClick: () -> Unit) {
     val trailing: (@Composable () -> Unit)? = if (!file) {
-        { Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, "Toggle") }
+        { TreeTrailingIcon(open) }
     } else null
 
     ListItem(
