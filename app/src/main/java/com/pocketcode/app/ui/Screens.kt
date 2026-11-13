@@ -210,7 +210,7 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
     var status by remember { mutableStateOf("Ready") }
     var approval by remember { mutableStateOf<com.pocketcode.app.data.AgentEngine.Event.Approval?>(null) }
     var logs by remember { mutableStateOf<List<String>>(emptyList()) }
-    
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(PureBlack).imePadding(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -229,8 +229,8 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
                 Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.padding(16.dp)) {
                         Text("Inspect & Index", style = MaterialTheme.typography.titleMedium)
-                        logs.forEach { logText -> 
-                            Text(logText, fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 3.dp)) 
+                        logs.forEach { logText ->
+                            Text(logText, fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 3.dp))
                         }
                     }
                 }
@@ -254,16 +254,16 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
             Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
                 Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
-                        value = prompt, 
-                        onValueChange = { prompt = it }, 
-                        modifier = Modifier.weight(1f), 
-                        placeholder = { Text("Ask agent…") }, 
+                        value = prompt,
+                        onValueChange = { prompt = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Ask agent…") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { submitAgent(prompt, engine, scope, { prompt = "" }, { status = it }, { output += it }, { logs = logs + it }, { approval = it }) })
                     )
-                    IconButton({ submitAgent(prompt, engine, scope, { prompt = "" }, { status = it }, { output += it }, { logs = logs + it }, { approval = it }) }) { 
-                        Icon(Icons.Default.Send, "Send", tint = AppleBlue) 
+                    IconButton({ submitAgent(prompt, engine, scope, { prompt = "" }, { status = it }, { output += it }, { logs = logs + it }, { approval = it }) }) {
+                        Icon(Icons.Default.Send, "Send", tint = AppleBlue)
                     }
                 }
             }
@@ -281,76 +281,76 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val history = remember { mutableStateListOf<String>() }
     var historyIndex by remember { mutableIntStateOf(-1) }
-    
-    LaunchedEffect(prefill) { 
-        if (prefill != null) { 
+
+    LaunchedEffect(prefill) {
+        if (prefill != null) {
             command = prefill
-            onConsumed() 
-        } 
+            onConsumed()
+        }
     }
-    
+
     fun execute(raw: String) {
         val value = raw.trim()
         if (value.isEmpty()) return
         history.add(value)
         historyIndex = -1
         command = ""
-        if (value == "clear") { 
+        if (value == "clear") {
             output = ""
-            return 
+            return
         }
         scope.launch {
             output += "$ $value\n"
-            runCatching { 
-                withContext(Dispatchers.IO) { 
-                    backend.execute(value) { line -> scope.launch { output += "$line\n" } } 
-                } 
-            }.onFailure { 
-                output += "${it.message}\n" 
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    backend.execute(value) { line -> scope.launch { output += "$line\n" } }
+                }
+            }.onFailure {
+                output += "${it.message}\n"
             }
         }
     }
-    
+
     Column(Modifier.fillMaxSize().background(PureBlack).imePadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { 
+            Column(Modifier.weight(1f)) {
                 Text("workspace shell", fontFamily = Mono, style = MaterialTheme.typography.titleMedium)
-                Text("● connected", color = AppleGreen, style = MaterialTheme.typography.labelSmall) 
+                Text("● connected", color = AppleGreen, style = MaterialTheme.typography.labelSmall)
             }
             IconButton({}) { Icon(Icons.Default.Add, "New session", tint = AppleBlue) }
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), reverseLayout = true) { 
-            item { 
-                Text(output, fontFamily = Mono, color = Color(0xFFE5E5EA), modifier = Modifier.padding(bottom = 12.dp)) 
-            } 
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), reverseLayout = true) {
+            item {
+                Text(output, fontFamily = Mono, color = Color(0xFFE5E5EA), modifier = Modifier.padding(bottom = 12.dp))
+            }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("$", fontFamily = Mono, color = AppleGreen)
             Spacer(Modifier.width(6.dp))
             OutlinedTextField(
-                value = command, 
-                onValueChange = { command = it }, 
-                modifier = Modifier.weight(1f), 
-                singleLine = true, 
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono, color = AppleBlue), 
-                placeholder = { Text("command", color = AppleBlue) }, 
-                trailingIcon = { 
-                    IconButton({ execute(command) }) { Icon(Icons.Default.ArrowUpward, "Run", tint = AppleBlue) } 
+                value = command,
+                onValueChange = { command = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono, color = AppleBlue),
+                placeholder = { Text("command", color = AppleBlue) },
+                trailingIcon = {
+                    IconButton({ execute(command) }) { Icon(Icons.Default.ArrowUpward, "Run", tint = AppleBlue) }
                 }
             )
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("esc", "tab", "ctrl", "^C", "/", "-", "|", "↑", "↓", "←", "→").forEach { key ->
                 InputChip(
-                    selected = false, 
-                    onClick = { 
-                        when (key) { 
+                    selected = false,
+                    onClick = {
+                        when (key) {
                             "^C" -> { backend.cancel(); output += "^C\n"; command = "" }
                             "↑" -> if (history.isNotEmpty()) { historyIndex = (historyIndex + 1).coerceAtMost(history.lastIndex); command = history[history.lastIndex - historyIndex] }
                             "↓" -> command = ""
-                            else -> command += if (key == "tab") "\t" else key 
-                        } 
-                    }, 
+                            else -> command += if (key == "tab") "\t" else key
+                        }
+                    },
                     label = { Text(key, fontFamily = Mono) }
                 )
             }
@@ -360,32 +360,34 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
 
 @Composable
 fun WorkspaceDrawer(onClose: () -> Unit) {
-    val settings = remember { SettingsRepository(LocalContext.current) }
+    // ✅ FIX: pindahkan LocalContext.current keluar dari remember { }
+    val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
     var path by remember { mutableStateOf(settings.activeWorkspacePath) }
     var pathDraft by remember { mutableStateOf(path) }
     var showDialog by remember { mutableStateOf(false) }
     var openFolders by remember { mutableStateOf(setOf("src")) }
     val root = remember(path) { File(path) }
-    
-    val rootFiles = remember(path) { 
+
+    val rootFiles = remember(path) {
         root.listFiles()?.filterNot { it.name == ".git" || it.name == "node_modules" }
-            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name }) ?: emptyList() 
+            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name }) ?: emptyList()
     }
-    
+
     ModalDrawerSheet(Modifier.fillMaxWidth(.85f), drawerContainerColor = PureBlack) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { 
+            Column(Modifier.weight(1f)) {
                 Text("HH", color = AppleBlue, style = MaterialTheme.typography.headlineMedium)
-                Text("hopehype workspace", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                Text("hopehype workspace", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClose) { Icon(Icons.Default.Close, "Close") }
         }
         Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.padding(14.dp)) { 
+            Column(Modifier.padding(14.dp)) {
                 Text("Root Mount", style = MaterialTheme.typography.titleMedium)
                 Text(if (root.isDirectory) "● Mounted" else "● Unavailable", color = if (root.isDirectory) AppleGreen else AppleRed, style = MaterialTheme.typography.labelSmall)
                 Text(path, fontFamily = Mono, modifier = Modifier.padding(vertical = 8.dp))
-                TextButton({ pathDraft = path; showDialog = true }) { Text("Change Folder") } 
+                TextButton({ pathDraft = path; showDialog = true }) { Text("Change Folder") }
             }
         }
         Text("Project Files", Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
@@ -398,9 +400,9 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
                     if (file.isDirectory && openFolders.contains(file.absolutePath)) {
                         val children = file.listFiles()
                             ?.filterNot { it.name == ".git" || it.name == "node_modules" }
-                            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name }) 
+                            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name })
                             ?: emptyList()
-                            
+
                         for (child in children) {
                             TreeRow(child.name, false, indent = 20, file = child.isFile) {}
                         }
@@ -409,15 +411,15 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
             }
         }
         Text("Recent Sessions", Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
-        Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) { 
+        Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) {
             Column {
                 ListItem({ Text("Current workspace") }, leadingContent = { Icon(Icons.Default.History, null) }, supportingContent = { Text(path, fontFamily = Mono) })
-            } 
+            }
         }
-        Button(onClick = onClose, modifier = Modifier.fillMaxWidth().padding(12.dp)) { 
+        Button(onClick = onClose, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Icon(Icons.Default.Add, null)
             Spacer(Modifier.width(8.dp))
-            Text("New Coding Session") 
+            Text("New Coding Session")
         }
     }
     if (showDialog) {
@@ -425,12 +427,12 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
             onDismissRequest = { showDialog = false },
             title = { Text("Change Folder") },
             text = { OutlinedTextField(pathDraft, { pathDraft = it }, label = { Text("Folder path") }, singleLine = true) },
-            confirmButton = { 
-                TextButton({ 
+            confirmButton = {
+                TextButton({
                     path = pathDraft.ifBlank { path }
                     settings.activeWorkspacePath = path
-                    showDialog = false 
-                }) { Text("Change") } 
+                    showDialog = false
+                }) { Text("Change") }
             },
             dismissButton = { TextButton({ showDialog = false }) { Text("Cancel") } }
         )
@@ -472,55 +474,55 @@ fun SettingsScreen() {
     var status by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val storageGranted = Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager()
-    
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(PureBlack), 
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), 
+        modifier = Modifier.fillMaxSize().background(PureBlack),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item { 
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { 
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                TextButton({}) { Text("Done", color = AppleBlue) } 
-            } 
+                TextButton({}) { Text("Done", color = AppleBlue) }
+            }
         }
-        item { 
+        item {
             Text("AI Provider Endpoint", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) { 
+            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(baseUrl, { baseUrl = it }, Modifier.fillMaxWidth(), label = { Text("Base URL") }, supportingText = { Text("OpenAI-compatible endpoint") }, singleLine = true)
                     OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API Key") }, supportingText = { Text("••••••••${if (apiKey.isEmpty()) "" else apiKey.takeLast(4)}") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), label = { Text("Active Model") }, singleLine = true)
                     OutlinedTextField(workspace, { workspace = it }, Modifier.fillMaxWidth(), label = { Text("Workspace Path") }, singleLine = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button({ 
+                        Button({
                             settings.baseUrl = baseUrl
                             settings.apiKey = apiKey
                             settings.activeModel = model
                             settings.activeWorkspacePath = workspace
                             settings.autoApproveRead = autoApproveRead
                             settings.requireTerminalApproval = requireTerminalApproval
-                            status = "Saved" 
+                            status = "Saved"
                         }) { Text("Save") }
-                        OutlinedButton({ 
-                            scope.launch(Dispatchers.IO) { 
-                                try { 
+                        OutlinedButton({
+                            scope.launch(Dispatchers.IO) {
+                                try {
                                     val c = URL(baseUrl.trimEnd('/') + "/models").openConnection() as HttpURLConnection
                                     c.setRequestProperty("Authorization", "Bearer $apiKey")
                                     val body = c.inputStream.bufferedReader().use { it.readText() }
                                     c.disconnect()
-                                    withContext(Dispatchers.Main) { 
+                                    withContext(Dispatchers.Main) {
                                         models = Regex("\"id\"\\s*:\\s*\"([^\"]+)").findAll(body).map { it.groupValues[1] }.toList()
-                                        status = "Connected" 
-                                    } 
-                                } catch (e: Exception) { 
-                                    withContext(Dispatchers.Main) { status = e.message ?: "Connection failed" } 
-                                } 
-                            } 
+                                        status = "Connected"
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) { status = e.message ?: "Connection failed" }
+                                }
+                            }
                         }) { Text("Test Connection / Fetch Models") }
                     }
                     if (status.isNotEmpty()) Text(status, color = if (status == "Connected") AppleGreen else AppleRed)
-                    
+
                     if (models.isNotEmpty()) {
                         Card(
                             modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp),
@@ -539,37 +541,37 @@ fun SettingsScreen() {
                             }
                         }
                     }
-                } 
-            } 
+                }
+            }
         }
-        item { 
+        item {
             Text("Execution & Safety Guardrails", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) { 
-                Column { 
+            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) {
+                Column {
                     SettingRow("Auto-approve read tools", autoApproveRead) { autoApproveRead = it; settings.autoApproveRead = it }
                     HorizontalDivider(color = Hairline)
-                    SettingRow("Require terminal approval", requireTerminalApproval) { requireTerminalApproval = it; settings.requireTerminalApproval = it } 
-                } 
-            } 
+                    SettingRow("Require terminal approval", requireTerminalApproval) { requireTerminalApproval = it; settings.requireTerminalApproval = it }
+                }
+            }
         }
-        item { 
+        item {
             Text("Virtual Environment", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) { 
-                Column { 
+            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) {
+                Column {
                     ListItem(
-                        headlineContent = { Text("Storage Access") }, 
-                        supportingContent = { Text(if (storageGranted) "Granted" else "Denied", color = if (storageGranted) AppleGreen else AppleRed) }, 
-                        leadingContent = { Icon(Icons.Default.Storage, null) }, 
-                        modifier = Modifier.clickable { 
-                            if (!storageGranted && Build.VERSION.SDK_INT >= 30) 
-                                context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}"))) 
+                        headlineContent = { Text("Storage Access") },
+                        supportingContent = { Text(if (storageGranted) "Granted" else "Denied", color = if (storageGranted) AppleGreen else AppleRed) },
+                        leadingContent = { Icon(Icons.Default.Storage, null) },
+                        modifier = Modifier.clickable {
+                            if (!storageGranted && Build.VERSION.SDK_INT >= 30)
+                                context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}")))
                         }
                     )
                     ListItem(headlineContent = { Text("Sandbox Container") }, supportingContent = { Text("Isolated workspace") })
                     ListItem(headlineContent = { Text("Memory Allocation") }, supportingContent = { Text("512 MB") })
-                    ListItem(headlineContent = { Text("Reset PTY Sessions & Cache", color = AppleRed) }) 
-                } 
-            } 
+                    ListItem(headlineContent = { Text("Reset PTY Sessions & Cache", color = AppleRed) })
+                }
+            }
         }
     }
 }
