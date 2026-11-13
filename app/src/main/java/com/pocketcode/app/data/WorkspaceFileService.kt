@@ -1,12 +1,9 @@
 package com.pocketcode.app.data
 
-import android.os.Build
-import android.os.Environment
 import java.io.File
 
 class WorkspaceFileService(private val root: File) {
     private fun safe(path: String): File {
-        require(Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager() || !root.path.startsWith("/storage/")) { "MANAGE_EXTERNAL_STORAGE permission required" }
         val base = root.canonicalFile
         val file = File(base, path).canonicalFile
         require(file.path == base.path || file.path.startsWith(base.path + File.separator)) { "Path outside workspace" }

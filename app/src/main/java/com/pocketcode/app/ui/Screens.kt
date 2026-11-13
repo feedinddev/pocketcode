@@ -4,7 +4,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.io.File
 import com.pocketcode.app.data.SettingsRepository
 import com.pocketcode.app.data.WorkspaceFileService
@@ -16,6 +19,12 @@ import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +34,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -38,6 +48,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -49,6 +61,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -81,6 +94,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -130,12 +145,29 @@ private fun submitAgent(
 fun MainScaffold() {
     PocketCodeTheme {
         var tab by remember { mutableIntStateOf(0) }
+        var showSettings by remember { mutableStateOf(false) }
         var terminalCommand by remember { mutableStateOf<String?>(null) }
+        var activeFilePath by remember { mutableStateOf<String?>(null) }
+        val context = LocalContext.current
+        val settings = remember { SettingsRepository(context) }
+        var treeUri by remember { mutableStateOf(settings.workspaceUri) }
+        val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            uri ?: return@rememberLauncherForActivityResult
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }.onSuccess {
+                treeUri = uri.toString()
+                settings.workspaceUri = treeUri
+                DocumentsContract.getTreeDocumentId(uri).takeIf { it.startsWith("primary:") }?.substringAfter(':')?.takeIf { it.isNotBlank() }?.let {
+                    settings.activeWorkspacePath = "/storage/emulated/0/$it"
+                }
+            }
+        }
         val drawerState = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
         val scope = rememberCoroutineScope()
         ModalNavigationDrawer(
             drawerState = drawerState,
-            drawerContent = { WorkspaceDrawer { scope.launch { drawerState.close() } } }
+            drawerContent = { WorkspaceDrawer({ scope.launch { drawerState.close() } }, { folderPicker.launch(null) }, treeUri) { activeFilePath = it; tab = 2; scope.launch { drawerState.close() } } }
         ) {
             Scaffold(
                 contentWindowInsets = WindowInsets.safeDrawing,
@@ -165,8 +197,9 @@ fun MainScaffold() {
                                 ) {
                                     Segment("Agent", tab == 0) { tab = 0 }
                                     Segment("Terminal", tab == 1) { tab = 1 }
+                                    Segment("Editor", tab == 2) { tab = 2 }
                                 }
-                                IconButton({ tab = 2 }) { Icon(Icons.Default.Settings, "Settings", tint = AppleBlue) }
+                                IconButton({ showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = AppleBlue) }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = PureBlack.copy(alpha = .94f))
                         )
@@ -175,10 +208,14 @@ fun MainScaffold() {
                 },
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
-                    when (tab) {
+                    when {
+                         showSettings -> SettingsScreen({ showSettings = false }, { folderPicker.launch(null) }, treeUri)
+                         else -> when (tab) {
                         0 -> AgentScreen { terminalCommand = it; tab = 1 }
                         1 -> TerminalScreen(terminalCommand) { terminalCommand = null }
-                        else -> SettingsScreen()
+                        2 -> EditorScreen(activeFilePath)
+                        else -> SettingsScreen({ showSettings = false }, { folderPicker.launch(null) }, treeUri)
+                         }
                     }
                 }
             }
@@ -203,28 +240,55 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
     val workspacePath = settings.activeWorkspacePath
     val engine = remember(workspacePath) { com.pocketcode.app.data.AgentEngine(settings, files, RealTerminalBackend(File(workspacePath), context.filesDir)) }
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
     var prompt by remember { mutableStateOf("") }
-    var output by remember { mutableStateOf("") }
+    var responses by remember { mutableStateOf<List<String>>(emptyList()) }
+    var prompts by remember { mutableStateOf<List<String>>(emptyList()) }
     var status by remember { mutableStateOf("Ready") }
     var approval by remember { mutableStateOf<com.pocketcode.app.data.AgentEngine.Event.Approval?>(null) }
     var logs by remember { mutableStateOf<List<String>>(emptyList()) }
-    
+    fun send() {
+        val value = prompt.trim()
+        if (value.isEmpty()) return
+        prompts = prompts + value
+        responses = responses + ""
+        submitAgent(value, engine, scope, { prompt = "" }, { status = it }, { chunk -> responses = responses.dropLast(1) + (responses.lastOrNull().orEmpty() + chunk) }, { logs = logs + it }, { approval = it })
+    }
+    Column(Modifier.fillMaxSize().background(PureBlack)) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(PureBlack).imePadding(),
+        modifier = Modifier.weight(1f).fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("●  AGENT", fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = AppleGreen)
-                Text(status, fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val pulse = rememberInfiniteTransition(label = "thinking").animateFloat(0.35f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "dot").value
+                Text("●  AGENT", fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = AppleGreen.copy(alpha = if (status == "Streaming") pulse else 1f))
+                Text(if (status == "Streaming") "Thinking…" else status, fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(10.dp))
-            Text(output.ifBlank { "Ask agent to inspect, edit, or test workspace." }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            prompts.forEachIndexed { index, value ->
+                Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), border = BorderStroke(1.dp, Hairline)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(value, fontFamily = Mono)
+                        if (responses.getOrNull(index)?.isNotEmpty() == true) {
+                             val output = responses[index]
+                             val code = output.contains("```")
+                             Card(colors = CardDefaults.cardColors(containerColor = if (code) Color(0xFF111113) else Color.Transparent), border = if (code) BorderStroke(1.dp, Hairline) else null, modifier = Modifier.padding(top = 10.dp)) {
+                                 Row(Modifier.padding(8.dp), verticalAlignment = Alignment.Top) {
+                                     Text(output, fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                                     if (code) TextButton({ clipboard.setText(AnnotatedString(output)) }) { Text("Copy") }
+                                 }
+                             }
+                         }
+                    }
+                }
+            }
+            if (prompts.isEmpty()) Text("Ask agent to inspect, edit, or test workspace.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (logs.isNotEmpty()) {
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
+                Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), border = BorderStroke(1.dp, Hairline), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.padding(16.dp)) {
                         Text("Inspect & Index", style = MaterialTheme.typography.titleMedium)
                         logs.forEach { logText -> 
@@ -236,7 +300,7 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
         }
         approval?.let { pending ->
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
+                Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), border = BorderStroke(1.dp, Hairline), shape = RoundedCornerShape(12.dp)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(if (pending.action.startsWith("Apply diff")) "Inline Diff Card" else "Command Suggestion Card", style = MaterialTheme.typography.titleMedium)
                         Text(pending.action, fontFamily = Mono, modifier = Modifier.padding(vertical = 10.dp))
@@ -248,22 +312,24 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
                 }
             }
         }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
-                Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = prompt, 
-                        onValueChange = { prompt = it }, 
-                        modifier = Modifier.weight(1f), 
-                        placeholder = { Text("Ask agent…") }, 
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { submitAgent(prompt, engine, scope, { prompt = "" }, { status = it }, { output += it }, { logs = logs + it }, { approval = it }) })
-                    )
-                    IconButton({ submitAgent(prompt, engine, scope, { prompt = "" }, { status = it }, { output += it }, { logs = logs + it }, { approval = it }) }) { 
-                        Icon(Icons.Default.Send, "Send", tint = AppleBlue) 
-                    }
-                }
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth().imePadding().padding(12.dp),
+            colors = CardDefaults.cardColors(containerColor = GroupedSurface),
+            border = BorderStroke(1.dp, Hairline),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Ask agent…") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { send() })
+                )
+                IconButton(onClick = { send() }) { Icon(Icons.Default.Send, "Send", tint = AppleBlue) }
             }
         }
     }
@@ -309,7 +375,7 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
         }
     }
     
-    Column(Modifier.fillMaxSize().background(PureBlack).imePadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
+    Column(Modifier.fillMaxSize().background(PureBlack).padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { 
                 Text("workspace shell", fontFamily = Mono, style = MaterialTheme.typography.titleMedium)
@@ -322,7 +388,7 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
                 Text(output, fontFamily = Mono, color = Color(0xFFE5E5EA), modifier = Modifier.padding(bottom = 12.dp)) 
             } 
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.imePadding(), verticalAlignment = Alignment.CenterVertically) {
             Text("$", fontFamily = Mono, color = AppleGreen)
             Spacer(Modifier.width(6.dp))
             OutlinedTextField(
@@ -357,7 +423,7 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
 }
 
 @Composable
-fun WorkspaceDrawer(onClose: () -> Unit) {
+fun WorkspaceDrawer(onClose: () -> Unit, onPickFolder: () -> Unit = {}, treeUri: String? = null, onFileSelected: (String) -> Unit = {}) {
     val context = LocalContext.current
     val settings = remember { SettingsRepository(context) }
     var path by remember { mutableStateOf(settings.activeWorkspacePath) }
@@ -384,8 +450,11 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
             Column(Modifier.padding(14.dp)) { 
                 Text("Root Mount", style = MaterialTheme.typography.titleMedium)
                 Text(if (root.isDirectory) "● Mounted" else "● Unavailable", color = if (root.isDirectory) AppleGreen else AppleRed, style = MaterialTheme.typography.labelSmall)
-                Text(path, fontFamily = Mono, modifier = Modifier.padding(vertical = 8.dp))
-                TextButton({ pathDraft = path; showDialog = true }) { Text("Change Folder") } 
+                Text(treeUri ?: path, fontFamily = Mono, modifier = Modifier.padding(vertical = 8.dp))
+                Row {
+                    TextButton(onPickFolder) { Text("Pick Folder") }
+                    TextButton({ pathDraft = path; showDialog = true }) { Text("Change Path") }
+                }
             }
         }
         Text("Project Files", Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
@@ -394,6 +463,7 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
                 for (file in rootFiles) {
                     TreeRow(file.name, openFolders.contains(file.absolutePath), file = file.isFile) {
                         if (file.isDirectory) openFolders = openFolders.toggle(file.absolutePath)
+                        else onFileSelected(file.relativeTo(root).path)
                     }
                     if (file.isDirectory && openFolders.contains(file.absolutePath)) {
                         val children = file.listFiles()
@@ -401,8 +471,8 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
                             ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name }) 
                             ?: emptyList()
                             
-                        for (child in children) {
-                            TreeRow(child.name, false, indent = 20, file = child.isFile) {}
+                        children.forEach { child ->
+                            WorkspaceTree(child, openFolders, { openFolders = openFolders.toggle(it) }, 20, onFileSelected)
                         }
                     }
                 }
@@ -440,21 +510,48 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
 private fun Set<String>.toggle(value: String): Set<String> = if (contains(value)) this - value else this + value
 
 @Composable
+private fun WorkspaceTree(file: File, open: Set<String>, toggle: (String) -> Unit, indent: Int, onFileSelected: (String) -> Unit = {}) {
+    val expanded = open.contains(file.absolutePath)
+    TreeRow(file.name, expanded, indent, file.isFile) { if (file.isDirectory) toggle(file.absolutePath) else onFileSelected(file.path) }
+    if (file.isDirectory && expanded) file.listFiles().orEmpty()
+        .filterNot { it.name == ".git" || it.name == "node_modules" }
+        .sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name })
+        .forEach { WorkspaceTree(it, open, toggle, indent + 20, onFileSelected) }
+}
+
+@Composable
+private fun fileTint(name: String): Color = when {
+    name.endsWith(".ts", true) || name.endsWith(".tsx", true) || name.endsWith(".js", true) || name.endsWith(".jsx", true) -> Color(0xFF4FC3F7)
+    name.endsWith(".css", true) || name.endsWith(".scss", true) -> Color(0xFFCE93D8)
+    name.endsWith(".json", true) -> Color(0xFFFFD54F)
+    name.endsWith(".kt", true) || name.endsWith(".java", true) -> Color(0xFFFF8A65)
+    name.endsWith(".html", true) || name.endsWith(".md", true) -> Color(0xFF80CBC4)
+    name.startsWith(".git") || name.equals("gitignore", true) -> Color(0xFFFF9800)
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+@Composable
 private fun TreeRow(name: String, open: Boolean, indent: Int = 0, file: Boolean = false, onClick: () -> Unit) {
     val trailing: (@Composable () -> Unit)? = if (!file) {
         { Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, "Toggle") }
     } else null
+    val icon = when {
+        !file -> Icons.Default.Folder
+        name.endsWith(".json", true) -> Icons.Default.DataObject
+        name.endsWith(".ts", true) || name.endsWith(".tsx", true) || name.endsWith(".js", true) -> Icons.Default.Code
+        else -> Icons.Default.Description
+    }
 
     ListItem(
         headlineContent = { Text(name, fontFamily = if (file) Mono else FontFamily.SansSerif) },
-        leadingContent = { Icon(if (file) Icons.Default.Description else Icons.Default.Folder, null) },
+        leadingContent = { Icon(icon, null, tint = if (!file) AppleBlue else fileTint(name)) },
         trailingContent = trailing,
         modifier = Modifier.padding(start = indent.dp).clickable(onClick = onClick)
     )
 }
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onDone: () -> Unit = {}, onPickFolder: () -> Unit = {}, treeUri: String? = null) {
     val context = LocalContext.current
     val settings = remember { SettingsRepository(context) }
     var baseUrl by remember { mutableStateOf(settings.baseUrl) }
@@ -476,7 +573,7 @@ fun SettingsScreen() {
         item { 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { 
                 Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                TextButton({}) { Text("Done", color = AppleBlue) } 
+                TextButton(onDone) { Text("Done", color = AppleBlue) }
             } 
         }
         item { 
@@ -487,6 +584,8 @@ fun SettingsScreen() {
                     OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API Key") }, supportingText = { Text("••••••••${if (apiKey.isEmpty()) "" else apiKey.takeLast(4)}") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), label = { Text("Active Model") }, singleLine = true)
                     OutlinedTextField(workspace, { workspace = it }, Modifier.fillMaxWidth(), label = { Text("Workspace Path") }, singleLine = true)
+                     Text(treeUri ?: "No SAF folder selected", fontFamily = Mono)
+                     OutlinedButton(onPickFolder) { Text("Pick Workspace Folder") }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button({ 
                             settings.baseUrl = baseUrl
@@ -515,7 +614,18 @@ fun SettingsScreen() {
                         }) { Text("Test Connection / Fetch Models") }
                     }
                     if (status.isNotEmpty()) Text(status, color = if (status == "Connected") AppleGreen else AppleRed)
-                    models.forEach { Text(it, fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (models.isNotEmpty()) {
+                        Card(
+                             modifier = Modifier.heightIn(max = 200.dp),
+                             colors = CardDefaults.cardColors(containerColor = GroupedSurface),
+                             border = BorderStroke(1.dp, Hairline)
+                         ) {
+                             Column(Modifier.verticalScroll(rememberScrollState())) {
+                            models.forEach { candidate ->
+                                ListItem({ Text(candidate, fontFamily = Mono) }, modifier = Modifier.clickable { model = candidate; settings.activeModel = candidate; models = emptyList() })
+                            }
+                         }
+                    }
                 } 
             } 
         }

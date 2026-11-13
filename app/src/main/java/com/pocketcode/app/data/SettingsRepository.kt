@@ -8,6 +8,7 @@ class SettingsRepository(context: Context) {
     var apiKey: String get() = prefs.getString("api_key", "sk-local") ?: "sk-local"; set(value) { prefs.edit().putString("api_key", value).apply() }
     var activeModel: String get() = prefs.getString("active_model", "claude-3-7-sonnet") ?: "claude-3-7-sonnet"; set(value) { prefs.edit().putString("active_model", value).apply() }
     var activeWorkspacePath: String get() = prefs.getString("workspace", "/storage/emulated/0/Projects") ?: "/storage/emulated/0/Projects"; set(value) { prefs.edit().putString("workspace", value).apply() }
+    var workspaceUri: String? get() = prefs.getString("workspace_uri", null); set(value) { prefs.edit().putString("workspace_uri", value).apply() }
     var autoApproveRead: Boolean get() = prefs.getBoolean("auto_approve_read", true); set(value) { prefs.edit().putBoolean("auto_approve_read", value).apply() }
     var requireTerminalApproval: Boolean get() = prefs.getBoolean("require_terminal_approval", true); set(value) { prefs.edit().putBoolean("require_terminal_approval", value).apply() }
     var model: String get() = activeModel; set(value) { activeModel = value }
