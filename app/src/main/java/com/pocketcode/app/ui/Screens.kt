@@ -358,7 +358,8 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
 
 @Composable
 fun WorkspaceDrawer(onClose: () -> Unit) {
-    val settings = remember { SettingsRepository(LocalContext.current) }
+    val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
     var path by remember { mutableStateOf(settings.activeWorkspacePath) }
     var pathDraft by remember { mutableStateOf(path) }
     var showDialog by remember { mutableStateOf(false) }
