@@ -26,7 +26,10 @@ android {
         freeCompilerArgs += "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
     }
     // Kotlin 2.0 Compose Compiler plugin owns compiler version; no legacy extension config.
-    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    packaging {
+        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        jniLibs { useLegacyPackaging = true }
+    }
 }
 
 dependencies {
@@ -42,6 +45,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
+    implementation("org.apache.commons:commons-compress:1.26.1")
     // Terminal integration stays behind app/src/main/java/com/pocketcode/app/terminal/TerminalBackend.kt.
     // Termux artifacts are omitted because their JitPack coordinates are not reliably published.
     debugImplementation("androidx.compose.ui:ui-tooling")
