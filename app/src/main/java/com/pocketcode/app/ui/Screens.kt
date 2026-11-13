@@ -440,10 +440,14 @@ private fun Set<String>.toggle(value: String): Set<String> = if (contains(value)
 
 @Composable
 private fun TreeRow(name: String, open: Boolean, indent: Int = 0, file: Boolean = false, onClick: () -> Unit) {
+    val trailing: (@Composable () -> Unit)? = if (!file) {
+        { Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, "Toggle") }
+    } else null
+
     ListItem(
-        { Text(name, fontFamily = if (file) Mono else FontFamily.SansSerif) },
+        headlineContent = { Text(name, fontFamily = if (file) Mono else FontFamily.SansSerif) },
         leadingContent = { Icon(if (file) Icons.Default.Description else Icons.Default.Folder, null) },
-        trailingContent = if (!file) { { Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, "Toggle") } } else null,
+        trailingContent = trailing,
         modifier = Modifier.padding(start = indent.dp).clickable(onClick = onClick)
     )
 }
