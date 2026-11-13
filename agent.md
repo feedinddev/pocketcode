@@ -7,11 +7,12 @@ PocketCode: aplikasi Android native Kotlin + Jetpack Compose untuk coding worksp
 ## Stack
 
 - Android SDK 34
-- Kotlin 1.9.22
+- Kotlin 2.0.21 (dengan plugin `org.jetbrains.kotlin.plugin.compose`)
+- AGP 8.5.2
 - Jetpack Compose Material 3
 - Navigation Compose
 - OkHttp 4.12.0 + okhttp-sse 4.12.0
-- Gradle 8.2
+- Gradle 8.7
 - JDK 17
 
 ## Source Layout
@@ -54,6 +55,8 @@ PocketCode: aplikasi Android native Kotlin + Jetpack Compose untuk coding worksp
 chmod +x gradlew
 ./gradlew assembleDebug
 ```
+
+Jangan menambahkan konfigurasi Compose Compiler legacy; sejak Kotlin 2.0 versi Compose Compiler dikelola oleh plugin `org.jetbrains.kotlin.plugin.compose`.
 
 APK output:
 

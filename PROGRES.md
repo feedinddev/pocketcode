@@ -6,7 +6,10 @@ Tanggal: 2026-11-13
 
 - Struktur proyek Android native Kotlin + Jetpack Compose dibuat dari nol.
 - Android SDK 34, target SDK 34, min SDK 26.
-- Kotlin 1.9.22, AGP 8.2.2, Gradle 8.2, JDK target 17.
+- Kotlin 2.0.21, AGP 8.5.2, Gradle 8.7, JDK target 17.
+- Plugin `org.jetbrains.kotlin.plugin.compose` versi 2.0.21 (plugin ini baru tersedia sejak Kotlin 2.0).
+- Konfigurasi Compose Compiler legacy tidak dipakai agar tidak bentrok dengan plugin Compose Kotlin 2.0.
+- Opt-in `androidx.compose.material3.ExperimentalMaterial3Api` ditambahkan lewat `freeCompilerArgs`.
 - Compose Material 3, Material Icons Extended, Navigation Compose.
 - OkHttp 4.12.0 dan okhttp-sse 4.12.0.
 - JitPack repository dikonfigurasi.
@@ -52,6 +55,7 @@ Environment juga tidak memiliki Android SDK, `javac`, `kotlinc`, `sdkmanager`, a
 
 - `design_reference.html` ada tetapi kosong, ukuran 0 byte. Implementasi memakai spesifikasi rinci user sebagai source of truth.
 - Agent response, diff apply, terminal output, file tree, dan settings masih local/mock state.
+- UI diselaraskan dengan `design_reference.html`: top segmented navigation, Agent editorial stream, Terminal session header/logs, drawer mount/tree/session cards, dan Settings grouped sections.
 - Termux dependencies tidak dimasukkan langsung karena koordinat JitPack tidak terbukti resolvable. Integrasi disiapkan melalui `TerminalBackend`.
 - Tidak ada repository Git lokal pada workspace saat ini.
 

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
@@ -60,8 +59,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -138,20 +135,13 @@ fun MainScaffold() {
                                     Segment("Agent", tab == 0) { tab = 0 }
                                     Segment("Terminal", tab == 1) { tab = 1 }
                                 }
-                                IconButton({ tab = 2 }) { Icon(Icons.Default.Settings, "Settings") }
+                                IconButton({ tab = 2 }) { Icon(Icons.Default.Settings, "Settings", tint = AppleBlue) }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = PureBlack.copy(alpha = .94f))
                         )
                         HorizontalDivider(color = Hairline)
                     }
                 },
-                bottomBar = {
-                    NavigationBar(containerColor = PureBlack, windowInsets = WindowInsets.navigationBars) {
-                        NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Default.AutoAwesome, "Agent") }, label = { Text("Agent") })
-                        NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Default.Terminal, "Terminal") }, label = { Text("Terminal") })
-                        NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Default.Settings, "Settings") }, label = { Text("Settings") })
-                    }
-                }
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
                     when (tab) {
@@ -187,8 +177,14 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("Fix auth edge cases", style = MaterialTheme.typography.headlineMedium)
-            Text("I reviewed your workspace and found one expiry boundary.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("●  STREAMING EXECUTION", fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = AppleGreen)
+                Text("10:42:19 AM", fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Refactor the hero authentication flow to support passkeys and fallback to biometric SMS.", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            Text("I've inspected local authentication middleware and project dependencies. Preparing two targeted edits: patching WebAuthn client validator and adding an optimistic fallback trigger.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
@@ -218,12 +214,26 @@ fun AgentScreen(onRunTerminal: (String) -> Unit) {
             }
         }
         item {
-            Text("Inline diff", style = MaterialTheme.typography.labelLarge)
-            DiffLine("- if (expiry < now)", AppleRed.copy(alpha = .15f))
-            DiffLine("+ if (expiry <= now)", AppleGreen.copy(alpha = .15f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton({ diffState = "discarded" }, enabled = diffState == "pending") { Text("Discard") }
-                Button({ diffState = "applied" }, enabled = diffState == "pending") { Text(if (diffState == "applied") "Applied" else "Apply Diff") }
+            Card(colors = CardDefaults.cardColors(containerColor = GroupedSurface), shape = RoundedCornerShape(12.dp)) {
+                Column {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("src/app/api/auth/route.ts", fontFamily = Mono, style = MaterialTheme.typography.labelSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("+18", color = AppleGreen, fontFamily = Mono); Text("-4", color = AppleRed, fontFamily = Mono) }
+                    }
+                    HorizontalDivider(color = Hairline)
+                    Text("41  export async function POST(req: Request) {", Modifier.padding(10.dp), fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DiffLine("-  const session = await auth.verifyCredentials(body);", AppleRed.copy(alpha = .15f))
+                    DiffLine("+  const passkey = await verifyPasskeyAuthentication(body);", AppleGreen.copy(alpha = .15f))
+                    DiffLine("+  const session = passkey ?? await fallbackSmsAuth(body);", AppleGreen.copy(alpha = .15f))
+                    Text("45  return Response.json({ session });", Modifier.padding(10.dp), fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    HorizontalDivider(color = Hairline)
+                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Staged in memory", Modifier.weight(1f), fontFamily = Mono, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton({ diffState = "discarded" }, enabled = diffState == "pending") { Text("Discard") }
+                        Spacer(Modifier.width(6.dp))
+                        Button({ diffState = "applied" }, enabled = diffState == "pending") { Text("Apply") }
+                    }
+                }
             }
             if (diffState != "pending") Text(diffState.replaceFirstChar { it.uppercase() }, color = if (diffState == "applied") AppleGreen else AppleRed)
         }
@@ -275,7 +285,7 @@ private fun DiffLine(text: String, color: Color) {
 @Composable
 fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
     var command by remember { mutableStateOf(prefill.orEmpty()) }
-    var output by remember { mutableStateOf("alpine:~/projects/hopehype-next$ help\nCommands: ls  pwd  clear  help\n") }
+    var output by remember { mutableStateOf("Welcome to hopehype terminal\n\n$ git status --short\n M src/app/auth/page.tsx\n$ pnpm install\nPackages: +214\n$ pnpm run build\n✓ Next.js build completed in 2.8s\n\nRuntime: Node v20.11.1  ·  branch feat/passkeys\n") }
     val history = remember { mutableStateListOf<String>() }
     var historyIndex by remember { mutableStateOf(-1) }
     LaunchedEffect(prefill) { if (prefill != null) { command = prefill; onConsumed() } }
@@ -293,13 +303,17 @@ fun TerminalScreen(prefill: String? = null, onConsumed: () -> Unit = {}) {
         }
     }
     Column(Modifier.fillMaxSize().background(PureBlack).imePadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { Text("ttys002", fontFamily = Mono, style = MaterialTheme.typography.titleMedium); Text("● connected", color = AppleGreen, style = MaterialTheme.typography.labelSmall) }
+            IconButton({}) { Icon(Icons.Default.Add, "New session", tint = AppleBlue) }
+        }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), reverseLayout = true) {
             item { Text(output, fontFamily = Mono, color = Color(0xFFE5E5EA), modifier = Modifier.padding(bottom = 12.dp)) }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("alpine:~/projects/hopehype-next$", fontFamily = Mono, color = AppleGreen)
             Spacer(Modifier.width(6.dp))
-            OutlinedTextField(command, { command = it }, Modifier.weight(1f), singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono), placeholder = { Text("command") }, trailingIcon = { IconButton({ execute(command) }) { Icon(Icons.Default.ArrowUpward, "Run") } })
+            OutlinedTextField(command, { command = it }, Modifier.weight(1f), singleLine = true, textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono, color = AppleBlue), placeholder = { Text("▌", color = AppleBlue) }, trailingIcon = { IconButton({ execute(command) }) { Icon(Icons.Default.ArrowUpward, "Run", tint = AppleBlue) } })
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("esc", "tab", "ctrl", "^C", "/", "-", "|", "↑", "↓", "←", "→").forEach { key ->
@@ -322,23 +336,32 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
     var pathDraft by remember { mutableStateOf(path) }
     var showDialog by remember { mutableStateOf(false) }
     var openFolders by remember { mutableStateOf(setOf("src")) }
-    ModalDrawerSheet(Modifier.fillMaxWidth(.85f), drawerContainerColor = GroupedSurface) {
+    ModalDrawerSheet(Modifier.fillMaxWidth(.85f), drawerContainerColor = PureBlack) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { Text("Workspace", style = MaterialTheme.typography.titleLarge); Text(path, fontFamily = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Column(Modifier.weight(1f)) { Text("HH", color = AppleBlue, style = MaterialTheme.typography.headlineMedium); Text("hopehype workspace", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             IconButton(onClose) { Icon(Icons.Default.Close, "Close") }
         }
-        HorizontalDivider(color = Hairline)
-        TextButton({ pathDraft = path; showDialog = true }, Modifier.padding(horizontal = 12.dp)) { Text("Change Folder") }
-        Text("Files", Modifier.padding(16.dp, 10.dp), style = MaterialTheme.typography.labelLarge)
-        TreeRow("src", openFolders.contains("src")) { openFolders = openFolders.toggle("src") }
-        if (openFolders.contains("src")) {
-            TreeRow("app", openFolders.contains("app"), indent = 24) { openFolders = openFolders.toggle("app") }
-            TreeRow("auth", openFolders.contains("auth"), indent = 24) { openFolders = openFolders.toggle("auth") }
-            if (openFolders.contains("auth")) TreeRow("passkeys.ts", false, indent = 48, file = true) {}
+        Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.padding(14.dp)) { Text("Root Mount", style = MaterialTheme.typography.titleMedium); Text("● Mounted", color = AppleGreen, style = MaterialTheme.typography.labelSmall); Text(path, fontFamily = Mono, modifier = Modifier.padding(vertical = 8.dp)); Text("feat/passkeys", color = AppleBlue, fontFamily = Mono); TextButton({ pathDraft = path; showDialog = true }) { Text("Change Folder") } }
         }
-        Text("Recent Sessions", Modifier.padding(16.dp, 10.dp), style = MaterialTheme.typography.labelLarge)
-        ListItem({ Text("Auth boundary review") }, leadingContent = { Icon(Icons.Default.History, null) })
-        ListItem({ Text("New Coding Session", color = AppleBlue) }, leadingContent = { Icon(Icons.Default.Add, null, tint = AppleBlue) }, modifier = Modifier.clickable(onClick = onClose))
+        Text("Project Files", Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
+        Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) {
+            TreeRow("src", openFolders.contains("src")) { openFolders = openFolders.toggle("src") }
+            if (openFolders.contains("src")) {
+                TreeRow("app", openFolders.contains("app"), indent = 20) { openFolders = openFolders.toggle("app") }
+                if (openFolders.contains("app")) {
+                    TreeRow("auth/page.tsx", false, indent = 36, file = true) {}
+                    TreeRow("layout.tsx", false, indent = 36, file = true) {}
+                }
+            }
+            TreeRow("package.json", false, file = true) {}
+        }
+        Text("Recent Sessions", Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
+        Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) { Column {
+            ListItem({ Text("Auth boundary review") }, leadingContent = { Icon(Icons.Default.History, null) }, supportingContent = { Text("Today · feat/passkeys") })
+            ListItem({ Text("Passkey implementation") }, leadingContent = { Icon(Icons.Default.History, null) }, supportingContent = { Text("Yesterday") })
+        } }
+        Button(onClick = onClose, modifier = Modifier.fillMaxWidth().padding(12.dp)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("New Coding Session") }
     }
     if (showDialog) AlertDialog(
         onDismissRequest = { showDialog = false },
@@ -372,39 +395,14 @@ fun SettingsScreen() {
     val storageGranted = Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager()
     LazyColumn(Modifier.fillMaxSize().background(PureBlack), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text("Settings", style = MaterialTheme.typography.headlineMedium, Modifier.weight(1f)); TextButton({}) { Text("Done", color = AppleBlue) } } }
-        item {
-            Text("Connection", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(baseUrl, { baseUrl = it }, Modifier.fillMaxWidth(), label = { Text("Base URL") }, singleLine = true)
-                    OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API Key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                    OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), label = { Text("Active Model") }, singleLine = true)
-                }
-            }
-        }
-        item {
-            Text("Approvals", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) {
-                Column {
-                    SettingRow("Auto-approve read tools", autoApproveRead) { autoApproveRead = it }
-                    HorizontalDivider(color = Hairline)
-                    SettingRow("Require approval for terminal", requireTerminalApproval) { requireTerminalApproval = it }
-                }
-            }
-        }
-        item {
-            Text("Storage", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
-            Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) {
-                ListItem(
-                    { Text(if (storageGranted) "Storage Access (/sdcard)" else "Grant Storage Access (/sdcard)"); Text(if (storageGranted) "Available" else "Tap to open system permission", color = if (storageGranted) AppleGreen else AppleRed, style = MaterialTheme.typography.bodySmall) },
-                    leadingContent = { Icon(Icons.Default.Storage, null) },
-                    trailingContent = { Icon(Icons.Default.ChevronRight, "Open") },
-                    modifier = Modifier.clickable {
-                        if (!storageGranted && Build.VERSION.SDK_INT >= 30) context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}")))
-                    }
-                )
-            }
-        }
+        item { Text("AI Provider Endpoint", color = MaterialTheme.colorScheme.onSurfaceVariant); Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(baseUrl, { baseUrl = it }, Modifier.fillMaxWidth(), label = { Text("Base URL") }, supportingText = { Text("OpenAI-compatible endpoint") }, singleLine = true)
+            OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API Key") }, supportingText = { Text("••••••••${if (apiKey.isEmpty()) "" else apiKey.takeLast(4)}") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+            OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), label = { Text("Active Model") }, singleLine = true)
+            Text("Max Context     32,768 tokens", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } } }
+        item { Text("Execution & Safety Guardrails", color = MaterialTheme.colorScheme.onSurfaceVariant); Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) { Column { SettingRow("Auto-approve read tools", autoApproveRead) { autoApproveRead = it }; HorizontalDivider(color = Hairline); SettingRow("Require terminal approval", requireTerminalApproval) { requireTerminalApproval = it } } } }
+        item { Text("Virtual Environment", color = MaterialTheme.colorScheme.onSurfaceVariant); Surface(color = GroupedSurface, shape = RoundedCornerShape(16.dp)) { Column { ListItem({ Text("Storage Access") }, supportingContent = { Text(if (storageGranted) "Granted" else "Denied", color = if (storageGranted) AppleGreen else AppleRed) }, leadingContent = { Icon(Icons.Default.Storage, null) }, modifier = Modifier.clickable { if (!storageGranted && Build.VERSION.SDK_INT >= 30) context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}"))) }); ListItem({ Text("Sandbox Container") }, supportingContent = { Text("Isolated workspace") }); ListItem({ Text("Memory Allocation") }, supportingContent = { Text("512 MB") }); ListItem({ Text("Reset PTY Sessions & Cache", color = AppleRed) }) } } }
     }
 }
 
