@@ -167,8 +167,9 @@ fun MainScaffold() {
                                 ) {
                                     Segment("Agent", tab == 0) { tab = 0 }
                                     Segment("Terminal", tab == 1) { tab = 1 }
+                                    Segment("Editor", tab == 2) { tab = 2 }
                                 }
-                                IconButton({ tab = 2 }) { Icon(Icons.Default.Settings, "Settings", tint = AppleBlue) }
+                                IconButton({ tab = 3 }) { Icon(Icons.Default.Settings, "Settings", tint = AppleBlue) }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = PureBlack.copy(alpha = .94f))
                         )
@@ -180,6 +181,7 @@ fun MainScaffold() {
                     when (tab) {
                         0 -> AgentScreen { terminalCommand = it; tab = 1 }
                         1 -> TerminalScreen(terminalCommand) { terminalCommand = null }
+                        2 -> EditorScreen()
                         else -> SettingsScreen()
                     }
                 }
