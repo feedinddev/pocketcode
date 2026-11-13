@@ -364,7 +364,9 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
     var showDialog by remember { mutableStateOf(false) }
     var openFolders by remember { mutableStateOf(setOf("src")) }
     val root = remember(path) { File(path) }
-    val files = remember(path) { 
+    
+    // Siapkan daftar file di luar pemanggilan UI Composable
+    val rootFiles = remember(path) { 
         root.listFiles()?.filterNot { it.name == ".git" || it.name == "node_modules" }
             ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name }) ?: emptyList() 
     }
@@ -387,16 +389,21 @@ fun WorkspaceDrawer(onClose: () -> Unit) {
         }
         Text("Project Files", Modifier.padding(16.dp, 14.dp, 16.dp, 6.dp), style = MaterialTheme.typography.labelLarge)
         Card(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(GroupedSurface), shape = RoundedCornerShape(14.dp)) {
-            files.forEach { file ->
-                TreeRow(file.name, openFolders.contains(file.absolutePath), file = file.isFile) {
-                    if (file.isDirectory) openFolders = openFolders.toggle(file.absolutePath)
-                }
-                if (file.isDirectory && openFolders.contains(file.absolutePath)) {
-                    file.listFiles()?.filterNot { it.name == ".git" || it.name == "node_modules" }
-                        ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name })
-                        ?.forEach { child ->
+            Column {
+                for (file in rootFiles) {
+                    TreeRow(file.name, openFolders.contains(file.absolutePath), file = file.isFile) {
+                        if (file.isDirectory) openFolders = openFolders.toggle(file.absolutePath)
+                    }
+                    if (file.isDirectory && openFolders.contains(file.absolutePath)) {
+                        val children = file.listFiles()
+                            ?.filterNot { it.name == ".git" || it.name == "node_modules" }
+                            ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name }) 
+                            ?: emptyList()
+                            
+                        for (child in children) {
                             TreeRow(child.name, false, indent = 20, file = child.isFile) {}
                         }
+                    }
                 }
             }
         }
